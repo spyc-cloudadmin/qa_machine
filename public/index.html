@@ -1,0 +1,169 @@
+<!-- index.html - Front-end code -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Simple Chatroom</title>
+    <!-- Responsive design -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Style -->
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+      }
+      #chat {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      #status {
+        padding: 10px;
+        background: #f1f1f1;
+        flex-shrink: 0;
+      }
+      #messages {
+        flex: 1;
+        padding: 10px;
+        overflow-y: scroll;
+        background: #fff;
+      }
+      #input-area {
+        padding: 10px;
+        background: #f1f1f1;
+        flex-shrink: 0;
+      }
+      #name-input,
+      #message-input {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 5px;
+        box-sizing: border-box;
+      }
+      #buttons {
+        display: flex;
+        justify-content: space-between;
+      }
+      #buttons button {
+        flex: 1;
+        margin: 2px;
+        padding: 10px;
+        font-size: 16px;
+      }
+      #buttons button:last-child {
+        margin-right: 0;
+      }
+      /* Mobile friendly */
+      @media (max-width: 600px) {
+        #buttons button {
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="chat">
+      <div id="status">
+        <span id="participants-count">Participants: 0</span> |
+        <span id="status-A">A: 0</span> | <span id="status-B">B: 0</span> |
+        <span id="status-C">C: 0</span> |
+        <span id="status-D">D: 0</span>
+      </div>
+      <div id="messages">
+        <!-- Chat messages will appear here -->
+      </div>
+      <div id="input-area">
+        <input id="name-input" type="text" placeholder="Enter your name" />
+        <input id="message-input" type="text" placeholder="Type a message" />
+        <div id="buttons">
+          <button id="button-A">A</button>
+          <button id="button-B">B</button>
+          <button id="button-C">C</button>
+          <button id="button-D">D</button>
+        </div>
+      </div>
+    </div>
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      // Escape HTML function to prevent code injection
+      function escapeHtml(unsafe) {
+        return unsafe
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      const socket = io();
+
+      const nameInput = document.getElementById("name-input");
+      const messageInput = document.getElementById("message-input");
+      const messages = document.getElementById("messages");
+      const participantsCount = document.getElementById("participants-count");
+      const statusA = document.getElementById("status-A");
+      const statusB = document.getElementById("status-B");
+      const statusC = document.getElementById("status-C");
+      const statusD = document.getElementById("status-D");
+      const buttonA = document.getElementById("button-A");
+      const buttonB = document.getElementById("button-B");
+      const buttonC = document.getElementById("button-C");
+      const buttonD = document.getElementById("button-D");
+
+      // Set name event
+      nameInput.addEventListener("change", () => {
+        const name = nameInput.value;
+        socket.emit("set name", name);
+      });
+
+      // Send message on Enter key
+      messageInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          const msg = messageInput.value;
+          if (msg.trim() !== "") {
+            socket.emit("chat message", msg);
+            messageInput.value = "";
+          }
+        }
+      });
+
+      // Receive chat message
+      socket.on("chat message", (data) => {
+        const item = document.createElement("div");
+        const name = escapeHtml(data.name);
+        const message = escapeHtml(data.message);
+        item.innerHTML = "<strong>" + name + ":</strong> " + message;
+        messages.appendChild(item);
+        messages.scrollTop = messages.scrollHeight;
+      });
+
+      // Update participants count
+      socket.on("participants count", (count) => {
+        participantsCount.textContent = "Participants: " + count;
+      });
+
+      // Update status counts
+      socket.on("status counts", (statusCounts) => {
+        statusA.textContent = "A: " + statusCounts.A;
+        statusB.textContent = "B: " + statusCounts.B;
+        statusC.textContent = "C: " + statusCounts.C;
+        statusD.textContent = "D: " + statusCounts.D;
+      });
+
+      // Status buttons
+      buttonA.addEventListener("click", () => {
+        socket.emit("status change", "A");
+      });
+      buttonB.addEventListener("click", () => {
+        socket.emit("status change", "B");
+      });
+      buttonC.addEventListener("click", () => {
+        socket.emit("status change", "C");
+      });
+      buttonD.addEventListener("click", () => {
+        socket.emit("status change", "D");
+      });
+    </script>
+  </body>
+</html>
