@@ -1,90 +1,96 @@
-<!-- index.html - Front-end code -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Simple Chatroom</title>
+    <title>QA Machine</title>
+    <link
+      rel="icon"
+      href="https://www5.pyc.edu.hk/pycnet/images/logo_transparent_vector.svg"
+    />
     <!-- Responsive design -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Style -->
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Custom Style (If needed) -->
     <style>
-      body {
-        margin: 0;
-        font-family: Arial, sans-serif;
-      }
       #chat {
         display: flex;
         flex-direction: column;
         height: 100vh;
       }
-      #status {
-        padding: 10px;
-        background: #f1f1f1;
-        flex-shrink: 0;
-      }
       #messages {
         flex: 1;
-        padding: 10px;
-        overflow-y: scroll;
-        background: #fff;
+        overflow-y: auto;
       }
       #input-area {
-        padding: 10px;
-        background: #f1f1f1;
         flex-shrink: 0;
-      }
-      #name-input,
-      #message-input {
-        width: 100%;
-        padding: 10px;
-        margin-bottom: 5px;
-        box-sizing: border-box;
-      }
-      #buttons {
-        display: flex;
-        justify-content: space-between;
-      }
-      #buttons button {
-        flex: 1;
-        margin: 2px;
-        padding: 10px;
-        font-size: 16px;
-      }
-      #buttons button:last-child {
-        margin-right: 0;
-      }
-      /* Mobile friendly */
-      @media (max-width: 600px) {
-        #buttons button {
-          font-size: 14px;
-        }
       }
     </style>
   </head>
   <body>
-    <div id="chat">
-      <div id="status">
-        <span id="participants-count">Participants: 0</span> |
-        <span id="status-A">A: 0</span> | <span id="status-B">B: 0</span> |
-        <span id="status-C">C: 0</span> |
-        <span id="status-D">D: 0</span>
+    <div id="chat" class="container-fluid d-flex flex-column h-100">
+      <div id="status" class="bg-light p-2">
+        <div>
+          <strong id="participants-count">Participants: 0</strong>
+        </div>
+        <div>
+          <span id="status-A"
+            >A: 0 <span class="badge bg-secondary">0%</span></span
+          >
+          |
+          <span id="status-B"
+            >B: 0 <span class="badge bg-secondary">0%</span></span
+          >
+          |
+          <span id="status-C"
+            >C: 0 <span class="badge bg-secondary">0%</span></span
+          >
+          |
+          <span id="status-D"
+            >D: 0 <span class="badge bg-secondary">0%</span></span
+          >
+        </div>
       </div>
-      <div id="messages">
+      <div id="messages" class="flex-fill p-2 bg-white overflow-auto">
         <!-- Chat messages will appear here -->
       </div>
-      <div id="input-area">
-        <input id="name-input" type="text" placeholder="Enter your name" />
-        <input id="message-input" type="text" placeholder="Type a message" />
-        <div id="buttons">
-          <button id="button-A">A</button>
-          <button id="button-B">B</button>
-          <button id="button-C">C</button>
-          <button id="button-D">D</button>
+      <div class="fixed-bottom">
+        <div id="input-area" class="p-2 bg-light">
+          <input
+            id="name-input"
+            type="text"
+            class="form-control mb-2"
+            placeholder="Enter your name"
+          />
+          <input
+            id="message-input"
+            type="text"
+            class="form-control mb-2"
+            placeholder="Type a message"
+          />
+          <div id="buttons" class="d-flex">
+            <button id="button-A" class="btn btn-primary flex-fill me-2">
+              A
+            </button>
+            <button id="button-B" class="btn btn-primary flex-fill me-2">
+              B
+            </button>
+            <button id="button-C" class="btn btn-primary flex-fill me-2">
+              C
+            </button>
+            <button id="button-D" class="btn btn-primary flex-fill">D</button>
+          </div>
         </div>
       </div>
     </div>
+
     <!-- Socket.IO -->
     <script src="/socket.io/socket.io.js"></script>
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       // Escape HTML function to prevent code injection
       function escapeHtml(unsafe) {
@@ -94,6 +100,14 @@
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&#039;");
+      }
+
+      // Linkify function to convert URLs into hyperlinks
+      function linkify(text) {
+        var urlPattern = /(https?:\/\/[^\s]+)/g;
+        return text.replace(urlPattern, function (url) {
+          return '<a href="' + url + '" target="_blank">' + url + "</a>";
+        });
       }
 
       const socket = io();
@@ -110,6 +124,32 @@
       const buttonB = document.getElementById("button-B");
       const buttonC = document.getElementById("button-C");
       const buttonD = document.getElementById("button-D");
+
+      let selectedStatus = null;
+
+      const statusButtons = {
+        A: buttonA,
+        B: buttonB,
+        C: buttonC,
+        D: buttonD,
+      };
+
+      function handleStatusButtonClick(status) {
+        if (selectedStatus === status) {
+          // Unselect
+          selectedStatus = null;
+          statusButtons[status].classList.remove("active");
+          socket.emit("status change", null);
+        } else {
+          if (selectedStatus) {
+            // Unselect previous button
+            statusButtons[selectedStatus].classList.remove("active");
+          }
+          selectedStatus = status;
+          statusButtons[status].classList.add("active");
+          socket.emit("status change", status);
+        }
+      }
 
       // Set name event
       nameInput.addEventListener("change", () => {
@@ -132,7 +172,7 @@
       socket.on("chat message", (data) => {
         const item = document.createElement("div");
         const name = escapeHtml(data.name);
-        const message = escapeHtml(data.message);
+        const message = linkify(escapeHtml(data.message));
         item.innerHTML = "<strong>" + name + ":</strong> " + message;
         messages.appendChild(item);
         messages.scrollTop = messages.scrollHeight;
@@ -145,25 +185,39 @@
 
       // Update status counts
       socket.on("status counts", (statusCounts) => {
-        statusA.textContent = "A: " + statusCounts.A;
-        statusB.textContent = "B: " + statusCounts.B;
-        statusC.textContent = "C: " + statusCounts.C;
-        statusD.textContent = "D: " + statusCounts.D;
+        const totalStatus =
+          statusCounts.A + statusCounts.B + statusCounts.C + statusCounts.D;
+        const percentage = (count) =>
+          totalStatus > 0
+            ? ((count / totalStatus) * 100).toFixed(1) + "%"
+            : "0%";
+        statusA.innerHTML = `A: ${
+          statusCounts.A
+        } <span class="badge bg-secondary">${percentage(
+          statusCounts.A
+        )}</span>`;
+        statusB.innerHTML = `B: ${
+          statusCounts.B
+        } <span class="badge bg-secondary">${percentage(
+          statusCounts.B
+        )}</span>`;
+        statusC.innerHTML = `C: ${
+          statusCounts.C
+        } <span class="badge bg-secondary">${percentage(
+          statusCounts.C
+        )}</span>`;
+        statusD.innerHTML = `D: ${
+          statusCounts.D
+        } <span class="badge bg-secondary">${percentage(
+          statusCounts.D
+        )}</span>`;
       });
 
       // Status buttons
-      buttonA.addEventListener("click", () => {
-        socket.emit("status change", "A");
-      });
-      buttonB.addEventListener("click", () => {
-        socket.emit("status change", "B");
-      });
-      buttonC.addEventListener("click", () => {
-        socket.emit("status change", "C");
-      });
-      buttonD.addEventListener("click", () => {
-        socket.emit("status change", "D");
-      });
+      buttonA.addEventListener("click", () => handleStatusButtonClick("A"));
+      buttonB.addEventListener("click", () => handleStatusButtonClick("B"));
+      buttonC.addEventListener("click", () => handleStatusButtonClick("C"));
+      buttonD.addEventListener("click", () => handleStatusButtonClick("D"));
     </script>
   </body>
 </html>
