@@ -29,8 +29,8 @@ const PORT = process.env.PORT || 443;
 app.use(express.static(path.join(__dirname, "public")));
 
 // Start server
-server.listen(port, () => {
-  console.log("Server is listening on port", port);
+server.listen(PORT, () => {
+  console.log("Server is listening on port", PORT);
 });
 
 // Variables to keep track of users and statuses
