@@ -12,6 +12,7 @@ By using nodejs 20.9, write a simple chatroom by using socketio. Here are the re
 */
 
 // index.js - Server-side code
+// index.js - Server-side code
 
 const express = require("express");
 const http = require("http");
@@ -36,6 +37,7 @@ server.listen(PORT, () => {
 // Variables to keep track of users and statuses
 let users = {}; // {socket.id: {name: 'User Name', status: 'A'}}
 let statusCounts = { A: 0, B: 0, C: 0, D: 0 };
+let messagesEnabled = true; // Flag to enable/disable messages
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
@@ -59,11 +61,13 @@ io.on("connection", (socket) => {
 
   // Handle 'chat message' event
   socket.on("chat message", (msg) => {
-    // Sanitize message
-    msg = sanitizeHtml(msg);
-    const name = users[socket.id].name;
-    // Broadcast message to all clients
-    io.emit("chat message", { name: name, message: msg });
+    if (messagesEnabled) {
+      // Sanitize message
+      msg = sanitizeHtml(msg);
+      const name = users[socket.id].name;
+      // Broadcast message to all clients
+      io.emit("chat message", { name: name, message: msg });
+    }
   });
 
   // Handle 'status change' event
@@ -81,6 +85,25 @@ io.on("connection", (socket) => {
     }
     // Broadcast updated status counts
     io.emit("status counts", statusCounts);
+  });
+
+  // Admin actions
+  socket.on("admin reset status", () => {
+    statusCounts = { A: 0, B: 0, C: 0, D: 0 };
+    for (let userId in users) {
+      users[userId].status = null;
+    }
+    io.emit("status counts", statusCounts);
+    io.emit("admin reset status");
+  });
+
+  socket.on("admin clear messages", () => {
+    io.emit("clear messages");
+  });
+
+  socket.on("admin toggle messages", (enabled) => {
+    messagesEnabled = enabled;
+    io.emit("admin toggle messages", enabled);
   });
 
   // Handle disconnect

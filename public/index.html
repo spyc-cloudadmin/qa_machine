@@ -28,6 +28,10 @@
       #input-area {
         flex-shrink: 0;
       }
+      .btn.active {
+        background-color: black;
+        color: white;
+      }
     </style>
   </head>
   <body>
@@ -57,13 +61,6 @@
       <div id="messages" class="flex-fill p-2 bg-white overflow-auto">
         <!-- Chat messages will appear here -->
       </div>
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
       <div class="fixed-bottom">
         <div id="input-area" class="p-2 bg-light">
           <input
@@ -72,12 +69,13 @@
             class="form-control mb-2"
             placeholder="Enter your name"
           />
-          <input
+          <textarea
             id="message-input"
-            type="text"
             class="form-control mb-2"
             placeholder="Type a message"
-          />
+            rows="3"
+          ></textarea>
+          <button id="submit-button" class="btn btn-success mb-2">Send</button>
           <div id="buttons" class="d-flex">
             <button id="button-A" class="btn btn-primary flex-fill me-2">
               A
@@ -121,6 +119,7 @@
 
       const nameInput = document.getElementById("name-input");
       const messageInput = document.getElementById("message-input");
+      const submitButton = document.getElementById("submit-button");
       const messages = document.getElementById("messages");
       const participantsCount = document.getElementById("participants-count");
       const statusA = document.getElementById("status-A");
@@ -164,14 +163,12 @@
         socket.emit("set name", name);
       });
 
-      // Send message on Enter key
-      messageInput.addEventListener("keypress", (e) => {
-        if (e.key === "Enter") {
-          const msg = messageInput.value;
-          if (msg.trim() !== "") {
-            socket.emit("chat message", msg);
-            messageInput.value = "";
-          }
+      // Send message on submit button click
+      submitButton.addEventListener("click", () => {
+        const msg = messageInput.value;
+        if (msg.trim() !== "") {
+          socket.emit("chat message", msg);
+          messageInput.value = "";
         }
       });
 
@@ -179,7 +176,9 @@
       socket.on("chat message", (data) => {
         const item = document.createElement("div");
         const name = escapeHtml(data.name);
-        const message = linkify(escapeHtml(data.message));
+        const message = linkify(
+          escapeHtml(data.message).replace(/\n/g, "<br>")
+        );
         item.innerHTML = "<strong>" + name + ":</strong> " + message;
         messages.appendChild(item);
         messages.scrollTop = messages.scrollHeight;
@@ -218,6 +217,26 @@
         } <span class="badge bg-secondary">${percentage(
           statusCounts.D
         )}</span>`;
+      });
+
+      // Clear messages event
+      socket.on("clear messages", () => {
+        messages.innerHTML = ""; // Clear all messages from the chat display
+      });
+
+      socket.on("admin reset status", () => {
+        console.log("Reset status");
+        selectedStatus = null;
+        for (const idx in statusButtons) {
+          statusButtons[idx].classList.remove("active");
+        }
+      });
+
+      socket.on("admin toggle messages", (enabled) => {
+        console.log("Toggle messages", enabled);
+        // messages.style.display = enabled ? "block" : "none";
+        submitButton.disabled = !enabled;
+        messageInput.disabled = !enabled;
       });
 
       // Status buttons
