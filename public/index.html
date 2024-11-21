@@ -14,12 +14,17 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
+    <!-- Quill CSS -->
+    <link
+      href="https://cdn.quilljs.com/1.3.6/quill.snow.css"
+      rel="stylesheet"
+    />
     <!-- Custom Style (If needed) -->
     <style>
       #chat {
         display: flex;
         flex-direction: column;
-        height: 100vh;
+        height: 90vh;
       }
       #messages {
         flex: 1;
@@ -39,6 +44,18 @@
       <div id="status" class="bg-light p-2">
         <div>
           <strong id="participants-count">Participants: 0</strong>
+        </div>
+        <div id="buttons" class="d-flex">
+          <button id="button-A" class="btn btn-primary flex-fill me-2">
+            A
+          </button>
+          <button id="button-B" class="btn btn-primary flex-fill me-2">
+            B
+          </button>
+          <button id="button-C" class="btn btn-primary flex-fill me-2">
+            C
+          </button>
+          <button id="button-D" class="btn btn-primary flex-fill">D</button>
         </div>
         <div>
           <span id="status-A"
@@ -65,7 +82,7 @@
       >
         <!-- Chat messages will appear here -->
       </div>
-      <div class="fixed-bottom" style="max-height: 35vh">
+      <div class="fixed-bottom" style="max-height: 60vh">
         <div id="input-area" class="p-2 bg-light">
           <input
             id="name-input"
@@ -73,25 +90,9 @@
             class="form-control mb-2"
             placeholder="Enter your name"
           />
-          <textarea
-            id="message-input"
-            class="form-control mb-2"
-            placeholder="Type a message"
-            rows="3"
-          ></textarea>
+          <!-- Quill Editor Placeholder -->
+          <div id="message-input" class="mb-2"></div>
           <button id="submit-button" class="btn btn-success mb-2">Send</button>
-          <div id="buttons" class="d-flex">
-            <button id="button-A" class="btn btn-primary flex-fill me-2">
-              A
-            </button>
-            <button id="button-B" class="btn btn-primary flex-fill me-2">
-              B
-            </button>
-            <button id="button-C" class="btn btn-primary flex-fill me-2">
-              C
-            </button>
-            <button id="button-D" class="btn btn-primary flex-fill">D</button>
-          </div>
         </div>
       </div>
     </div>
@@ -105,6 +106,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <!-- Include the toxicity model -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/toxicity"></script>
+    <!-- Quill JS -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
     <script>
       // Escape HTML function to prevent code injection
       function escapeHtml(unsafe) {
@@ -127,7 +131,6 @@
       const socket = io();
 
       const nameInput = document.getElementById("name-input");
-      const messageInput = document.getElementById("message-input");
       const submitButton = document.getElementById("submit-button");
       const messages = document.getElementById("messages");
       const participantsCount = document.getElementById("participants-count");
@@ -166,6 +169,13 @@
         }
       }
 
+      // Initialize Quill editor
+      const quill = new Quill("#message-input", {
+        theme: "snow",
+        placeholder: "Enter your message here...",
+        formats: ["bold", "italic", "underline", "link"],
+      });
+
       // Set name event
       nameInput.addEventListener("change", () => {
         const name = nameInput.value;
@@ -173,22 +183,15 @@
       });
 
       // Receive chat message
-      // Receive messages
       socket.on("chat message", (data) => {
         const item = document.createElement("div");
         item.classList.add("message-item");
         item.dataset.messageId = data.id;
-        item.innerHTML =
-          "<strong>" +
-          data.name +
-          ":</strong> " +
-          data.message
+        item.innerHTML = "<strong>" + data.name + ":</strong> " + data.message;
         messages.appendChild(item);
 
-        const deleteButton = item.querySelector(".delete-button");
-        deleteButton.addEventListener("click", () => {
-          socket.emit("admin delete message", data.id);
-        });
+        // Scroll to bottom
+        messages.scrollTop = messages.scrollHeight;
       });
 
       // Update participants count
@@ -232,7 +235,6 @@
       });
 
       socket.on("admin reset status", () => {
-        console.log("Reset status");
         selectedStatus = null;
         for (const idx in statusButtons) {
           statusButtons[idx].classList.remove("active");
@@ -240,10 +242,8 @@
       });
 
       socket.on("admin toggle messages", (enabled) => {
-        console.log("Toggle messages", enabled);
-        // messages.style.display = enabled ? "block" : "none";
         submitButton.disabled = !enabled;
-        messageInput.disabled = !enabled;
+        quill.enable(enabled);
       });
 
       // Delete message
@@ -269,12 +269,12 @@
 
       // Modify the submit button event handler
       submitButton.addEventListener("click", async () => {
-        console.log("Submit button clicked");
-        const msg = messageInput.value;
-        if (msg.trim() !== "") {
+        const msg = quill.root.innerHTML;
+        const plainText = quill.getText().trim();
+        if (plainText !== "") {
           if (model) {
             // Model loaded, classify the message
-            const predictions = await model.classify([msg]);
+            const predictions = await model.classify([plainText]);
             const isToxic = predictions.some((prediction) => {
               return (
                 prediction.results[0].match === true &&
@@ -290,15 +290,15 @@
 
             if (isToxic) {
               alert("Your message was blocked due to inappropriate content.");
-              messageInput.value = "";
+              quill.setText("");
             } else {
               socket.emit("chat message", msg);
-              messageInput.value = "";
+              quill.setText("");
             }
           } else {
             // Model not loaded yet, send the message
             socket.emit("chat message", msg);
-            messageInput.value = "";
+            quill.setText("");
           }
         }
       });
