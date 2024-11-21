@@ -65,8 +65,10 @@ io.on("connection", (socket) => {
       // Sanitize message
       msg = sanitizeHtml(msg);
       const name = users[socket.id].name;
+      // Generate a unique message ID
+      const messageId = Date.now().toString() + socket.id;
       // Broadcast message to all clients
-      io.emit("chat message", { name: name, message: msg });
+      io.emit("chat message", { id: messageId, name: name, message: msg });
     }
   });
 
@@ -85,6 +87,11 @@ io.on("connection", (socket) => {
     }
     // Broadcast updated status counts
     io.emit("status counts", statusCounts);
+  });
+
+  // Handle 'admin delete message' event
+  socket.on("admin delete message", (messageId) => {
+    io.emit("admin delete message", messageId);
   });
 
   // Admin actions

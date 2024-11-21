@@ -4,9 +4,35 @@
     <meta charset="UTF-8" />
     <title>Admin Panel</title>
     <link
+      rel="icon"
+      href="https://www5.pyc.edu.hk/pycnet/images/logo_transparent_vector.svg"
+    />
+    <!-- Responsive design -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
+    <style>
+      #messages {
+        height: 300px;
+        overflow-y: scroll;
+        border: 1px solid #ccc;
+        margin-bottom: 15px;
+        padding: 10px;
+      }
+      .message-item {
+        position: relative;
+        padding-right: 30px;
+      }
+      .delete-button {
+        position: absolute;
+        top: 0;
+        right: 0;
+        cursor: pointer;
+        color: red;
+      }
+    </style>
   </head>
   <body>
     <div class="container mt-5">
@@ -20,6 +46,18 @@
       <button id="toggle-messages" class="btn btn-secondary mb-2">
         Disable Messages
       </button>
+
+      <div id="messages"></div>
+
+      <div class="input-group mb-3">
+        <input
+          id="message-input"
+          type="text"
+          class="form-control"
+          placeholder="Type a message"
+        />
+        <button id="submit-button" class="btn btn-success">Send</button>
+      </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -32,6 +70,9 @@
       const resetStatusButton = document.getElementById("reset-status");
       const clearMessagesButton = document.getElementById("clear-messages");
       const toggleMessagesButton = document.getElementById("toggle-messages");
+      const messages = document.getElementById("messages");
+      const messageInput = document.getElementById("message-input");
+      const submitButton = document.getElementById("submit-button");
 
       let messagesEnabled = true;
 
@@ -49,6 +90,47 @@
           ? "Disable Messages"
           : "Enable Messages";
         socket.emit("admin toggle messages", messagesEnabled);
+      });
+
+      // Send message
+      submitButton.addEventListener("click", () => {
+        const msg = messageInput.value;
+        if (msg.trim() !== "") {
+          socket.emit("chat message", msg);
+          messageInput.value = "";
+        }
+      });
+
+      // Receive messages
+      socket.on("chat message", (data) => {
+        const item = document.createElement("div");
+        item.classList.add("message-item");
+        item.dataset.messageId = data.id;
+        item.innerHTML =
+          "<strong>" +
+          data.name +
+          ":</strong> " +
+          data.message +
+          ' <span class="delete-button">&times;</span>';
+        messages.appendChild(item);
+
+        const deleteButton = item.querySelector(".delete-button");
+        deleteButton.addEventListener("click", () => {
+          socket.emit("admin delete message", data.id);
+        });
+      });
+
+      // Delete message
+      socket.on("admin delete message", (messageId) => {
+        const item = messages.querySelector(`[data-message-id="${messageId}"]`);
+        if (item) {
+          messages.removeChild(item);
+        }
+      });
+
+      // Clear messages
+      socket.on("clear messages", () => {
+        messages.innerHTML = "";
       });
     </script>
   </body>

@@ -58,7 +58,11 @@
           >
         </div>
       </div>
-      <div id="messages" class="flex-fill p-2 bg-white overflow-auto" style="max-height: 65vh">
+      <div
+        id="messages"
+        class="flex-fill p-2 bg-white overflow-auto"
+        style="max-height: 65vh"
+      >
         <!-- Chat messages will appear here -->
       </div>
       <div class="fixed-bottom" style="max-height: 35vh">
@@ -96,6 +100,11 @@
     <script src="/socket.io/socket.io.js"></script>
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Include TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <!-- Include the toxicity model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/toxicity"></script>
     <script>
       // Escape HTML function to prevent code injection
       function escapeHtml(unsafe) {
@@ -163,25 +172,23 @@
         socket.emit("set name", name);
       });
 
-      // Send message on submit button click
-      submitButton.addEventListener("click", () => {
-        const msg = messageInput.value;
-        if (msg.trim() !== "") {
-          socket.emit("chat message", msg);
-          messageInput.value = "";
-        }
-      });
-
       // Receive chat message
+      // Receive messages
       socket.on("chat message", (data) => {
         const item = document.createElement("div");
-        const name = escapeHtml(data.name);
-        const message = linkify(
-          escapeHtml(data.message).replace(/\n/g, "<br>")
-        );
-        item.innerHTML = "<strong>" + name + ":</strong> " + message;
+        item.classList.add("message-item");
+        item.dataset.messageId = data.id;
+        item.innerHTML =
+          "<strong>" +
+          data.name +
+          ":</strong> " +
+          data.message
         messages.appendChild(item);
-        messages.scrollTop = messages.scrollHeight;
+
+        const deleteButton = item.querySelector(".delete-button");
+        deleteButton.addEventListener("click", () => {
+          socket.emit("admin delete message", data.id);
+        });
       });
 
       // Update participants count
@@ -239,11 +246,62 @@
         messageInput.disabled = !enabled;
       });
 
+      // Delete message
+      socket.on("admin delete message", (messageId) => {
+        const item = messages.querySelector(`[data-message-id="${messageId}"]`);
+        if (item) {
+          messages.removeChild(item);
+        }
+      });
+
       // Status buttons
       buttonA.addEventListener("click", () => handleStatusButtonClick("A"));
       buttonB.addEventListener("click", () => handleStatusButtonClick("B"));
       buttonC.addEventListener("click", () => handleStatusButtonClick("C"));
       buttonD.addEventListener("click", () => handleStatusButtonClick("D"));
+
+      // Load the toxicity model
+      const threshold = 0.5; // Confidence threshold
+      let model;
+      toxicity.load(threshold).then((loadedModel) => {
+        model = loadedModel;
+      });
+
+      // Modify the submit button event handler
+      submitButton.addEventListener("click", async () => {
+        console.log("Submit button clicked");
+        const msg = messageInput.value;
+        if (msg.trim() !== "") {
+          if (model) {
+            // Model loaded, classify the message
+            const predictions = await model.classify([msg]);
+            const isToxic = predictions.some((prediction) => {
+              return (
+                prediction.results[0].match === true &&
+                (prediction.label === "toxicity" ||
+                  prediction.label === "severe_toxicity" ||
+                  prediction.label === "identity_attack" ||
+                  prediction.label === "insult" ||
+                  prediction.label === "threat" ||
+                  prediction.label === "sexual_explicit" ||
+                  prediction.label === "obscene")
+              );
+            });
+
+            if (isToxic) {
+              alert("Your message was blocked due to inappropriate content.");
+              messageInput.value = "";
+            } else {
+              socket.emit("chat message", msg);
+              messageInput.value = "";
+            }
+          } else {
+            // Model not loaded yet, send the message
+            socket.emit("chat message", msg);
+            messageInput.value = "";
+          }
+        }
+      });
     </script>
   </body>
 </html>
